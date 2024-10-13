@@ -1,0 +1,58 @@
+name: Push to release
+
+on:
+  push:
+    branches: [ "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Source Code Download
+        run: git clone --branch beta --single-branch --recurse-submodules https://github.com/DHD2280/Oxygen-Customizer-AI-Plugin.git .
+
+      - name: JDK 17 Setup
+        uses: actions/setup-java@v4.1.0
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Gradlew Permissions
+        run: chmod +x gradlew
+
+      - name: Signature files preparation
+        run: |
+          if [ ! -z "${{ secrets.KEYSTORE }}" ]; then
+            echo storePassword='${{ secrets.KEYSTORE_PASSWORD }}' >> keystore.properties
+            echo keyAlias='${{ secrets.KEY_ALIAS }}' >> keystore.properties
+            echo keyPassword='${{ secrets.KEY_PASSWORD }}' >> keystore.properties
+            echo storeFile='${{ github.workspace }}/key.jks' >> keystore.properties
+            echo ${{ secrets.KEYSTORE }} | base64 --decode > ${{ github.workspace }}/key.jks
+          fi
+
+      - name: Gradle Build
+        run: ./gradlew assembleRelease
+
+      - name: Upload Xposed Artifact to Actions
+        uses: actions/upload-artifact@v4.3.1
+        with:
+          name: OxygenCustomizerAIPlugin
+          path: app/build/outputs/apk/release/*.apk
+
+      - name: Oxygen Customizer Binary Release
+        uses: ncipollo/release-action@v1.14.0
+        with:
+          tag: 'latest_version'
+          name: 'Latest Version'
+          omitBodyDuringUpdate: true
+          prerelease: true
+          allowUpdates: true
+          replacesArtifacts: true
+          draft: false
+          artifacts: 'app/build/outputs/apk/release/*.apk'
