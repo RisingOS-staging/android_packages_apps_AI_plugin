@@ -1,0 +1,16 @@
+[versions]
+agp = "8.6.0"
+kotlin = "2.0.21"
+coreKtx = "1.13.1"
+
+[libraries]
+removebg = { module = "com.github.erenalpaslan:removebg", version = "1.0.4" }
+su-core = { module = "com.github.topjohnwu.libsu:core", version = "6.0.0" }
+su-nio = { module = "com.github.topjohnwu.libsu:nio", version = "6.0.0" }
+su-service = { module = "com.github.topjohnwu.libsu:service", version = "6.0.0" }
+core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+

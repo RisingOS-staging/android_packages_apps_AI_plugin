@@ -1,0 +1,5 @@
+-keep,allowoptimization,allowobfuscation class androidx.annotation.Nullable
+-keep,allowoptimization,allowobfuscation class androidx.annotation.NonNull
+-dontwarn javax.annotation.Nullable
+-dontwarn android.support.v4.**
+-dontwarn androidx.**
