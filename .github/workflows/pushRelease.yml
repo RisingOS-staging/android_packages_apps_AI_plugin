@@ -14,7 +14,7 @@ jobs:
 
     steps:
       - name: Source Code Download
-        run: git clone --branch beta --single-branch --recurse-submodules https://github.com/DHD2280/Oxygen-Customizer-AI-Plugin.git .
+        run: git clone --branch master --single-branch --recurse-submodules https://github.com/DHD2280/Oxygen-Customizer-AI-Plugin.git .
 
       - name: JDK 17 Setup
         uses: actions/setup-java@v4.1.0
