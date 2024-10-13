@@ -21,7 +21,8 @@
 
         <receiver
             android:name=".receivers.SubjectExtractionReceiver"
-            android:exported="true">
+            android:exported="true"
+            android:permission="it.dhd.oxygencustomizer.aiplugin.REQUEST_EXTRACT_SUBJECT">
             <intent-filter>
                 <action android:name="it.dhd.oxygencustomizer.aiplugin.ACTION_EXTRACT_SUBJECT" />
             </intent-filter>
