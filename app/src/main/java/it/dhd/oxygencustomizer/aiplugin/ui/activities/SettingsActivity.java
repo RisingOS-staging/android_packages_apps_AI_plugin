@@ -49,7 +49,7 @@ public class SettingsActivity extends AppCompatActivity {
 
     private void setDarkTheme() {
         if (isNightMode()) {
-            int darkStyle = Settings.System.getInt(getContentResolver(), "DarkMode_style_key", 2);
+            int darkStyle = Settings.System.getInt(getContentResolver(), "DarkMode_style_key", 0);
             switch (darkStyle) {
                 case 0:
                     setTheme(R.style.Theme_OxygenCustomizer_AIPlugin_DarkHard);
