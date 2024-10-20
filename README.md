@@ -54,4 +54,11 @@ Portions of this project include code licensed under the MIT License:
 
 - [rembg](https://github.com/danielgatis/rembg)
 - Copyright (c) [2020] Daniel Gatis
-```
+
+# ⭐ Donations
+
+[<img src=".github/resources/PayPal.svg"
+alt='Donate with PayPal'
+height="80">](https://www.paypal/luigifale) [<img src=".github/resources/BMC.svg"
+alt='Donate with BMC'
+height="80">](https://www.buymeacoffee.com/DHD2280)
