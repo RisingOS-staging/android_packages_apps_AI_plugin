@@ -1,28 +1,21 @@
 package it.dhd.oxygencustomizer.aiplugin.receivers;
 
-import static android.os.FileUtils.copy;
 import static it.dhd.oxygencustomizer.aiplugin.utils.Constants.ACTION_EXTRACT_FAILURE;
 import static it.dhd.oxygencustomizer.aiplugin.utils.Constants.ACTION_EXTRACT_SUCCESS;
-import static it.dhd.oxygencustomizer.aiplugin.utils.ImageUtils.fixImageOrientation;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.drawable.Drawable;
 import android.util.Log;
+import android.app.WallpaperManager;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.preference.PreferenceManager;
-
-import com.topjohnwu.superuser.Shell;
-
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
 
 import it.dhd.oxygencustomizer.aiplugin.interfaces.SegmenterResultListener;
 import it.dhd.oxygencustomizer.aiplugin.utils.BitmapSubjectSegmenter;
@@ -30,43 +23,24 @@ import it.dhd.oxygencustomizer.aiplugin.utils.SubjectSegmenter;
 
 public class SubjectExtractionReceiver extends BroadcastReceiver {
 
-    private String mSourcePath = null;
-    private String mDestinationPath = null;
     private String mSenderPackage = null;
 
     @Override
-    public void onReceive(Context context, Intent intent) {
-
+    public void onReceive(Context context, @NonNull Intent intent) {
         Log.d("SubjectExtractionReceiver", "Received intent");
-
-        mSourcePath = intent.getStringExtra("sourcePath");
-        mDestinationPath = intent.getStringExtra("destinationPath");
         mSenderPackage = intent.getPackage();
-
         Log.d("SubjectExtractionReceiver", "mSenderPackage: " + mSenderPackage);
-
-        if (mSourcePath == null || mDestinationPath == null) {
-            sendError(context, "Invalid source or destination path");
-            return;
-        }
-
         startRemove(context);
-
     }
 
     private void startRemove(Context context) {
-
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
-        File file = new File(mSourcePath);
-
         try {
-            FileInputStream fis = new FileInputStream(file);
-            Bitmap bitmap = fixImageOrientation(fis);
-            if (bitmap == null) {
-                sendError(context, "Failed to decode bitmap");
+            Bitmap wallpaperBitmap = getWallpaperBitmap(context);
+            if (wallpaperBitmap == null) {
+                sendError(context, "Failed to retrieve wallpaper");
                 return;
             }
-            Bitmap inputBitmap = bitmap.copy(bitmap.getConfig(), true);
+            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
             int aiMode = Integer.parseInt(prefs.getString("ai_mode", "0"));
             Log.d("SubjectExtractionReceiver", "AI Mode: " + aiMode);
             if (aiMode == 1) {
@@ -74,86 +48,65 @@ public class SubjectExtractionReceiver extends BroadcastReceiver {
                 new SubjectSegmenter(context, Integer.parseInt(prefs.getString("ai_model", "0")), new SegmenterResultListener() {
                     @Override
                     public void onSegmentationResult(Bitmap result) {
-                        try {
-                            if (result.isRecycled()) {
-                                Log.e("SubjectExtractionReceiver", "onSuccess: BitmapSubjectSegmenter: Recycled bitmap");
-                                return;
-                            }
-                            File tempFile = File.createTempFile("lswt", ".png");
-
-                            Log.d("SubjectExtractionReceiver", "extractSubject: " + tempFile.getAbsolutePath() + " -> " + mDestinationPath);
-
-                            FileOutputStream outputStream = new FileOutputStream(tempFile);
-                            result.compress(Bitmap.CompressFormat.PNG, 100, outputStream);
-
-                            outputStream.close();
-                            result.recycle();
-
-                            try {
-                                copy(new FileInputStream(tempFile), new FileOutputStream(mDestinationPath));
-                            } catch (Exception e) {
-                                e.printStackTrace();
-                            }
-
-                            Log.d("SubjectExtractionReceiver", "onSuccess: BitmapSubjectSegmenter " + mDestinationPath);
-
-                            Intent successIntent = new Intent();
-                            successIntent.setAction(ACTION_EXTRACT_SUCCESS);
-                            successIntent.setPackage(mSenderPackage);
-                            context.sendBroadcast(successIntent);
-                        } catch (Throwable t) {
-                            Log.e("SubjectExtractionReceiver", "onSuccess: BitmapSubjectSegmenter", t);
-                        }
+                        sendSubjectResult(context, result);
                     }
-
                     @Override
                     public void onSegmentationError(Exception e) {
                         sendError(context, e.getMessage());
                     }
-                }).removeBackground(inputBitmap);
+                }).removeBackground(wallpaperBitmap);
             } else {
-                new BitmapSubjectSegmenter(context).segmentSubjectFromJava(inputBitmap, new SegmenterResultListener() {
+                new BitmapSubjectSegmenter(context).segmentSubjectFromJava(wallpaperBitmap, new SegmenterResultListener() {
                     @Override
                     public void onSegmentationResult(@Nullable Bitmap result) {
-                        try {
-                            File tempFile = File.createTempFile("lswt", ".png");
-
-                            Log.d("SubjectExtractionReceiver", "extractSubject: " + tempFile.getAbsolutePath() + " -> " + mDestinationPath);
-
-                            FileOutputStream outputStream = new FileOutputStream(tempFile);
-                            result.compress(Bitmap.CompressFormat.PNG, 100, outputStream);
-
-                            outputStream.close();
-                            result.recycle();
-
-                            try {
-                                copy(new FileInputStream(tempFile), new FileOutputStream(mDestinationPath));
-                            } catch (Exception e) {
-                                e.printStackTrace();
-                            }
-
-                            Intent successIntent = new Intent();
-                            successIntent.setAction(ACTION_EXTRACT_SUCCESS);
-                            successIntent.setPackage(mSenderPackage);
-                            context.sendBroadcast(successIntent);
-                        } catch (Throwable t) {
-                            Log.e("SubjectExtractionReceiver", "onSuccess: BitmapSubjectSegmenter", t);
-                        }
+                        sendSubjectResult(context, result);
                     }
-
                     @Override
                     public void onSegmentationError(@NonNull Exception e) {
-                        Intent failureIntent = new Intent();
-                        failureIntent.setAction(ACTION_EXTRACT_FAILURE);
-                        failureIntent.setPackage(mSenderPackage);
-                        Log.e("SubjectExtractionReceiver", "Failed to extract subject", e);
-                        failureIntent.putExtra("error", e.getMessage());
-                        context.sendBroadcast(failureIntent);
+                        sendError(context, e.getMessage());
                     }
                 });
             }
         } catch (Exception e) {
-            Log.e("SubjectExtractionReceiver", "Failed to decode bitmap", e);
+            Log.e("SubjectExtractionReceiver", "Error processing wallpaper", e);
+            sendError(context, "Error processing wallpaper");
+        }
+    }
+
+    private Bitmap getWallpaperBitmap(Context context) {
+        try {
+            WallpaperManager wallpaperManager = WallpaperManager.getInstance(context);
+            Drawable wallpaperDrawable = wallpaperManager.getDrawable();
+            if (wallpaperDrawable == null) {
+                return null;
+            }
+            Bitmap wallpaperBitmap = Bitmap.createBitmap(wallpaperDrawable.getIntrinsicWidth(),
+                    wallpaperDrawable.getIntrinsicHeight(), Bitmap.Config.ARGB_8888);
+            Canvas canvas = new Canvas(wallpaperBitmap);
+            wallpaperDrawable.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
+            wallpaperDrawable.draw(canvas);
+            return wallpaperBitmap;
+        } catch (Exception e) {
+            Log.e("SubjectExtractionReceiver", "Failed to get wallpaper", e);
+            return null;
+        }
+    }
+
+    private void sendSubjectResult(Context context, Bitmap result) {
+        if (result == null) {
+            sendError(context, "Failed to extract subject");
+            return;
+        }
+        try {
+            Intent successIntent = new Intent();
+            successIntent.setAction(ACTION_EXTRACT_SUCCESS);
+            successIntent.setPackage(mSenderPackage);
+            successIntent.putExtra("subjectImage", result);
+            context.sendBroadcast(successIntent);
+            Log.d("SubjectExtractionReceiver", "Subject extraction successful");
+        } catch (Exception e) {
+            Log.e("SubjectExtractionReceiver", "Error sending subject result", e);
+            sendError(context, "Error sending subject result");
         }
     }
 
@@ -165,5 +118,4 @@ public class SubjectExtractionReceiver extends BroadcastReceiver {
         failureIntent.putExtra("error", errorMessage);
         context.sendBroadcast(failureIntent);
     }
-
 }
